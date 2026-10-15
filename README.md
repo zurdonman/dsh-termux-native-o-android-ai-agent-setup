@@ -105,6 +105,54 @@ El agente escribirá el código, lo ejecutará en la terminal integrada y te mos
 | `--expose-internals is required for HMR` | Estás usando `npx dsh web`. Usa **siempre** `./start-dsh.sh` como se indica en el Paso 4. |
 | `EACCES: permission denied` al guardar archivos | Olvidaste ejecutar `termux-setup-storage` en el Paso 1. Reinicia Termux y ejecútalo. |
 | La interfaz web no carga | Verifica que la URL sea `127.0.0.1` y no `localhost` (a veces Android resuelve mal localhost). |
+| `Could not find @vscode/ripgrep-android-arm64` o fallan `glob` / `grep` del agente | `@vscode/ripgrep` no tiene binario para Android. Aplica la **corrección de ripgrep** de la sección siguiente. |
+| `gyp ERR!`, `make: not found`, `clang: not found` al instalar | Faltan herramientas de compilación para `node-pty`. Ejecuta `pkg install -y clang make python cmake binutils pkg-config` y reinstala. |
+| `dsh web` se cierra al arrancar | Comprueba la versión de Node con `node -v`. Los proyectos de la comunidad indican **22.19+** o **24+**. Si es más antigua, ejecuta `pkg install nodejs-lts`. |
+
+---
+
+## 🔁 Si no funciona: diagnóstico y alternativas de la comunidad
+
+Esta guía fija `@deepseek-ai/dsh` sin versión. Al comprobarlo, se ven estos puntos:
+
+- **Verificado en Linux (sandbox x64, Node 22.22.3):** `npm install @deepseek-ai/dsh@0.2.0-rc.2` instala bien, `dsh --version` devuelve `0.2.0-rc.2` y `dsh web` imprime `http://127.0.0.1:3080/?token=...`. Por tanto, el fallo es específico de **Android/Termux**, no del comando de arranque.
+- **`@vscode/ripgrep` (usado por las herramientas `glob`/`grep`)** busca el paquete `@vscode/ripgrep-<platform>-<arch>`. En Termux la plataforma es `android`, que no existe en npm, así que el módulo lanza error. Esto no está cubierto por la guía original.
+- **`node-pty`** no trae binario precompilado para Android y se compila con `node-gyp` en el propio móvil. Necesita clang, make y python.
+- **`koffi`** también depende de binarios por plataforma, y no hay build `android-arm64` oficial.
+
+### Corrección de ripgrep (verificada en simulación)
+
+Instala el `rg` nativo de Termux y crea un paquete *shim* que lo expone con el nombre que espera `@vscode/ripgrep`:
+
+```bash
+pkg install -y ripgrep
+cd ~/dsh-agent
+D=node_modules/@vscode/ripgrep-android-arm64/bin
+mkdir -p "$D"
+echo '{"name":"@vscode/ripgrep-android-arm64","version":"1.18.0","main":"bin/rg"}' > node_modules/@vscode/ripgrep-android-arm64/package.json
+printf '#!/data/data/com.termux/files/usr/bin/sh\nexec rg "$@"\n' > "$D/rg"
+chmod +x "$D/rg"
+```
+
+Hay que repetir este paso tras cada `npm install` o actualización de dsh. La prueba se hizo simulando `process.platform = "android"` con `npm_config_arch=arm64` en Linux: el módulo resuelve el shim y `rg --version` responde. **Todavía no se ha probado en un móvil real.**
+
+### Proyectos de la comunidad (GitHub)
+
+| Proyecto | Qué ofrece | Notas |
+| :--- | :--- | :--- |
+| [Vengisk/deepseek-harness-termux](https://github.com/Vengisk/deepseek-harness-termux) | Parches automáticos sobre el paquete npm, instalador `install.sh`, compilación de `node-pty`/`koffi` en el dispositivo, shim de ripgrep y paquete precompilado `dsh-termux-full.tgz`. | Es el más completo en la documentación de problemas. Requiere Node ≥ 24. Sus parches están probados contra versiones 0.1.x. |
+| [Yuifeng2016/deepseek-harness-termux](https://github.com/Yuifeng2016/deepseek-harness-termux) (fork de mermergi) | 18 parches idempotentes (`android-fix.mjs`), shim de ripgrep, app Android opcional con instalador. | Indica probar con **0.1.7-rc.2**: sin los parches 10, 11 y 18 no arranca. |
+| [tkosub/dsh-termux-core](https://github.com/tkosub/dsh-termux-core) | Instalador `provision.sh` que aplica las correcciones y comprueba bloqueo de archivos, creación, imágenes y búsqueda. | Probado con **0.1.5-rc.1** y Android 11+. |
+| [ARSADM7/termux-deepseek-harness](https://github.com/ARSADM7/termux-deepseek-harness) | Instalador de un comando con compilación nativa y configuración automática. | Probado en Android 16 / aarch64. Indica Android 11+. |
+
+**Importante:** los proyectos anteriores están pensados para versiones 0.1.x. La versión actual en npm es **0.2.0-rc.2**. Si quieres usar uno de ellos, instala la versión que indique su README (por ejemplo, `npm install @deepseek-ai/dsh@0.1.7-rc.2`) en lugar de `latest`.
+
+### Ruta recomendada
+
+1. Haz la instalación limpia con `pkg` y Node 22.19+ o 24+.
+2. Si solo falla la búsqueda (`glob`/`grep`), aplica la corrección de ripgrep de esta sección.
+3. Si falla la compilación nativa, prueba `install.sh` de **Vengisk/deepseek-harness-termux** y consulta su documentación.
+4. Si tienes un error distinto, copia el mensaje completo que aparece en Termux al ejecutar `./start-dsh.sh` y abre un *issue* en este repositorio.
 
 ---
 
