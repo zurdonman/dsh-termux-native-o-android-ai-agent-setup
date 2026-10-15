@@ -4,6 +4,9 @@ name: Termux emulator test
 # installs Termux inside it and runs the dsh installer there, so that the
 # result is checked on Android and not only on Linux.
 #
+# Results are committed to ci-results/<run id>/ on the same branch, so they can
+# be read through the GitHub API (job logs are not reachable from every network).
+#
 # Runs on manual dispatch, or when this workflow file / its scripts change on
 # the working branch. It is not part of the regular CI.
 
@@ -29,9 +32,6 @@ on:
       - ".github/workflows/termux-emulator.yml"
       - ".github/termux-ci/**"
 
-permissions:
-  contents: read
-
 concurrency:
   group: termux-emulator-${{ github.ref }}
   cancel-in-progress: true
@@ -47,26 +47,24 @@ jobs:
     name: Install dsh in Termux on Android (arm64)
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 150
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Enable KVM for the emulator
+      - name: Check KVM
         run: |
           uname -m
           grep -m1 -o -E 'vmx|svm|asimd' /proc/cpuinfo || true
-          ls -l /dev/kvm 2>&1 || echo "no /dev/kvm yet"
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules || true
-          sudo udevadm control --reload-rules || true
-          sudo udevadm trigger --name-type=subsystem --action=add || true
+          ls -l /dev/kvm 2>&1 || echo "no /dev/kvm"
           sudo chmod 666 /dev/kvm 2>/dev/null || true
-          ls -l /dev/kvm 2>&1 || echo "still no /dev/kvm"
-          ls -l /dev | head -40 || true
+          ls -l /dev/kvm 2>&1 || true
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-unset}"
 
       - name: Free disk space
         run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/lib/android "$AGENT_TOOLSDIRECTORY" || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup || true
           df -h /
 
       - name: Download Termux APK (github-debug build, run-as enabled)
@@ -75,19 +73,28 @@ jobs:
           curl -fL --retry 3 -o ci-apk/termux.apk "$TERMUX_APK_URL"
           ls -l ci-apk/termux.apk
 
-      - name: Run installer inside Termux on the emulator
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: ${{ env.API_LEVEL }}
-          target: google_apis
-          arch: arm64-v8a
-          cores: 4
-          ram-size: 4096M
-          disk-size: 12G
-          emulator-boot-timeout: 1200
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          disable-animations: true
-          script: bash .github/termux-ci/run-on-emulator.sh
+      - name: Boot emulator, install Termux, run installer inside Termux
+        timeout-minutes: 130
+        env:
+          API_LEVEL: ${{ env.API_LEVEL }}
+        run: bash .github/termux-ci/run-on-emulator.sh
+
+      - name: Publish results to ci-results/ on this branch
+        if: always()
+        run: |
+          set +e
+          RUN_DIR="ci-results/${GITHUB_RUN_ID}"
+          mkdir -p "$RUN_DIR"
+          cp -r ci-logs/. "$RUN_DIR/" 2>/dev/null
+          echo "run=${GITHUB_RUN_ID} sha=${GITHUB_SHA} installer=${INSTALLER_REPO}@${INSTALLER_REF} api=${API_LEVEL}" > "$RUN_DIR/meta.txt"
+          git config user.name "termux-ci"
+          git config user.email "termux-ci@users.noreply.github.com"
+          git add -f ci-results
+          git commit -qm "ci: termux emulator results for run ${GITHUB_RUN_ID}"
+          git pull -q --rebase origin "$GITHUB_REF_NAME"
+          git push -q origin "HEAD:refs/heads/$GITHUB_REF_NAME"
+          echo "published to $RUN_DIR"
+          ls -la "$RUN_DIR"
 
       - name: Upload Termux and emulator logs
         if: always()
