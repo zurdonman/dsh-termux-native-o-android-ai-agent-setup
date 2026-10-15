@@ -37,7 +37,13 @@ run() {
   say "=== STEP: $name ($(date +%H:%M:%S)) ==="
   "$@" >> "$LOG" 2>&1
   local rc=$?
-  if [ "$rc" -eq 0 ]; then record "$name" PASS "rc=0"; else record "$name" FAIL "rc=$rc"; fi
+  if [ "$rc" -eq 0 ]; then
+    record "$name" PASS "rc=0"
+  else
+    record "$name" FAIL "rc=$rc"
+    echo "--- last 25 lines of full.log for $name ---" | tee -a "$REPORT" "$LOG" >/dev/null
+    tail -n 25 "$LOG" >> "$REPORT"
+  fi
   return "$rc"
 }
 
@@ -70,7 +76,8 @@ if [ -n "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/install.sh" ]; then
   WEB_PID=$!
   code=000
   for _ in $(seq 1 60); do
-    code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3080/ 2>/dev/null || echo 000)
+    code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3080/ 2>/dev/null)
+    [ -z "$code" ] && code=000
     [ "$code" != "000" ] && break
     sleep 5
   done
@@ -91,11 +98,14 @@ if [ -n "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/install.sh" ]; then
     record native-checks FAIL "dsh package.json not found at $DSH_PKG"
   fi
 
-  patched=$(grep -rl "termux-noreplace-fallback\|termux-hardlink-fallback\|termux-durability-guard" "$(npm root -g)/@deepseek-ai/dsh" 2>/dev/null | wc -l)
-  if [ "$patched" -ge 3 ]; then
-    record termux-patches-present PASS "files=$patched"
+  DSH_ROOT="$(npm root -g)/@deepseek-ai/dsh"
+  p_fs=$(grep -rl "termux-noreplace-fallback" "$DSH_ROOT" 2>/dev/null | wc -l)
+  p_att=$(grep -rl "termux-hardlink-fallback" "$DSH_ROOT" 2>/dev/null | wc -l)
+  p_sess=$(grep -rl "await rename(tmp, finalPath)" "$DSH_ROOT" 2>/dev/null | wc -l)
+  if [ "$p_fs" -ge 1 ] && [ "$p_att" -ge 1 ] && [ "$p_sess" -ge 1 ]; then
+    record termux-patches-present PASS "fs-local=$p_fs attachment=$p_att session=$p_sess"
   else
-    record termux-patches-present FAIL "files=$patched (expected >=3)"
+    record termux-patches-present FAIL "fs-local=$p_fs attachment=$p_att session=$p_sess (all must be >=1)"
   fi
 else
   record installer-install FAIL "install.sh not found (download failed)"
