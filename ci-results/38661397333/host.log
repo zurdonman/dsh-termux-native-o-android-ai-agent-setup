@@ -1,0 +1,4 @@
+[host 00:41:04] SDK at /home/runner/android-sdk
+[host 00:41:04] downloading Android command-line tools
+[host 00:41:05] accepting licenses and installing packages (this can take several minutes)
+[host 00:41:10] FAIL: sdkmanager install of system-images;android-34;google_apis;arm64-v8a (see sdkmanager.log)
