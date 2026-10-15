@@ -1,0 +1,93 @@
+name: Termux emulator test
+
+# Boots a real Android (arm64) emulator on a GitHub-hosted arm64 runner (KVM),
+# installs Termux inside it and runs the dsh installer there, so that the
+# result is checked on Android and not only on Linux.
+#
+# Runs on manual dispatch, or when this workflow file / its scripts change on
+# the working branch. It is not part of the regular CI.
+
+on:
+  workflow_dispatch:
+    inputs:
+      installer_repo:
+        description: "GitHub repo (owner/name) that contains install.sh"
+        required: false
+        default: "lilyco-42/dsh-termux"
+      installer_ref:
+        description: "Branch, tag or commit of the installer repo"
+        required: false
+        default: "main"
+      api_level:
+        description: "Android API level of the emulator system image"
+        required: false
+        default: "34"
+  push:
+    branches:
+      - arena/071a9cd5-dsh-termux-native-o-android-ai
+    paths:
+      - ".github/workflows/termux-emulator.yml"
+      - ".github/termux-ci/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: termux-emulator-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERMUX_APK_URL: "https://github.com/termux/termux-app/releases/download/v0.118.3/termux-app_v0.118.3+github-debug_arm64-v8a.apk"
+  INSTALLER_REPO: ${{ inputs.installer_repo || 'lilyco-42/dsh-termux' }}
+  INSTALLER_REF: ${{ inputs.installer_ref || 'main' }}
+  API_LEVEL: ${{ inputs.api_level || '34' }}
+
+jobs:
+  termux-on-android:
+    name: Install dsh in Termux on Android (arm64)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enable KVM for the emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-type=subsystem --action=add
+          ls -l /dev/kvm || echo "no /dev/kvm"
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup /usr/local/lib/android "$AGENT_TOOLSDIRECTORY" || true
+          df -h /
+
+      - name: Download Termux APK (github-debug build, run-as enabled)
+        run: |
+          mkdir -p ci-apk
+          curl -fL --retry 3 -o ci-apk/termux.apk "$TERMUX_APK_URL"
+          ls -l ci-apk/termux.apk
+
+      - name: Run installer inside Termux on the emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.API_LEVEL }}
+          target: google_apis
+          arch: arm64-v8a
+          cores: 4
+          ram-size: 4096M
+          disk-size: 12G
+          emulator-boot-timeout: 1200
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash .github/termux-ci/run-on-emulator.sh
+
+      - name: Upload Termux and emulator logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: termux-emulator-logs
+          path: ci-logs/
+          if-no-files-found: warn
