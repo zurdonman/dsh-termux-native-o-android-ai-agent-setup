@@ -18,7 +18,39 @@ Guía definitiva para ejecutar **DeepSeek Harness** (el framework de agentes de 
 
 ---
 
-## 🚀 Hoja de Ruta de Instalación (Paso a Paso)
+## ⚡ Instalación rápida en Termux (un comando)
+
+Requisitos: Termux instalado desde **F-Droid**, Android 11 o superior, unos 2 GB libres y una API key de DeepSeek.
+
+En Termux, ejecuta estos comandos uno a uno:
+
+```bash
+pkg install -y git
+git clone -b arena/071a9cd5-dsh-termux-native-o-android-ai https://github.com/zurdonman/dsh-termux-native-o-android-ai-agent-setup.git
+cd dsh-termux-native-o-android-ai-agent-setup
+bash install-termux.sh
+```
+
+El script instala todo: paquetes, `@deepseek-ai/dsh` (con el instalador de [lilyco-42/dsh-termux](https://github.com/lilyco-42/dsh-termux), fijado a un commit), `pnpm` para los plugins, y las correcciones de Android de `termux-verify/`:
+
+- `fix-require-builtin.sh`: sin esto, `dsh web` no arranca (`No usable native binding found for node-addon-require-builtin-android-arm64`).
+- `fix-ripgrep.sh`: sin esto, las herramientas `glob` y `grep` fallan.
+
+Tarda bastante, porque compila módulos nativos. Pide tu API key en mitad del proceso; la escribes sin que se vea. No lo ejecutes con un pipe (`curl ... | bash`), porque el instalador necesita el teclado. Al final, arranca la interfaz con:
+
+```bash
+dsh web
+```
+
+Es seguro volver a ejecutar `bash install-termux.sh`: cada paso salta lo que ya está hecho. Si algo falla, el script indica qué comprobar y deja el resultado en `~/dsh-install/checks.txt`.
+
+> **Probado:** en un móvil real (Android 15, arm64) `dsh web` arranca, la interfaz carga y se instaló un plugin, con `pnpm` añadido a mano. El script completo aún no se ha ejecutado de principio a fin en un móvil limpio.
+
+---
+
+## 🚀 Hoja de Ruta de Instalación (Paso a Paso, manual)
+
+Esta es la guía manual original. El comando de arriba hace lo mismo y además aplica las correcciones de Android.
 
 Sigue estos pasos en orden dentro de tu terminal de Termux.
 

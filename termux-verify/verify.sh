@@ -73,6 +73,8 @@ if [ -n "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/install.sh" ]; then
 
   # node-addon-require-builtin has no android-arm64 binding; swap in the JS stub.
   run require-builtin-stub bash "$HERE/fix-require-builtin.sh"
+  # glob/grep tools need a ripgrep shim on Termux (pkg installs ripgrep if missing).
+  run ripgrep-shim bash "$HERE/fix-ripgrep.sh"
 
   say "=== STEP: dsh-web ($(date +%H:%M:%S)) ==="
   nohup dsh web --no-open > "$REPORT_DIR/web.log" 2>&1 &
