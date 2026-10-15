@@ -1,6 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # Runs INSIDE the Termux app on the Android emulator (as the com.termux uid).
-# Usage: termux-test.sh <installer tarball URL>
+# Usage: termux-test.sh <installer tarball URL> [abi]
+#   abi defaults to aarch64 (real phones). On an x86_64 emulator the installer's
+#   hard-coded NDK target is switched to x86_64 and this is logged as an adaptation.
 # Writes ~/ci/ci.log (everything) and ~/ci/summary.txt (PASS/FAIL per step).
 
 export PREFIX=/data/data/com.termux/files/usr
@@ -14,7 +16,8 @@ if [ -f "$PREFIX/lib/libtermux-exec.so" ]; then
   export LD_PRELOAD="$PREFIX/lib/libtermux-exec.so"
 fi
 
-INSTALLER_URL="${1:?usage: termux-test.sh <installer tarball URL>}"
+INSTALLER_URL="${1:?usage: termux-test.sh <installer tarball URL> [abi]}"
+ABI="${2:-aarch64}"
 CI_DIR=$HOME/ci
 LOG=$CI_DIR/ci.log
 SUMMARY=$CI_DIR/summary.txt
@@ -39,7 +42,7 @@ run_step() { # run_step <name> <command...>
 
 say "Termux CI started $(date -u)"
 say "uname: $(uname -a)"
-say "android: $(/system/bin/getprop ro.build.version.release 2>/dev/null) abi: $(/system/bin/getprop ro.product.cpu.abi 2>/dev/null)"
+say "android: $(/system/bin/getprop ro.build.version.release 2>/dev/null) abi: $(/system/bin/getprop ro.product.cpu.abi 2>/dev/null) (test abi=$ABI)"
 say "termux: $(cat $PREFIX/etc/motd 2>/dev/null | head -1)"
 
 run_step pkg-update pkg update -y
@@ -50,6 +53,12 @@ INSTALL_DIR=$(ls -d "$CI_DIR"/dsh-termux-* 2>/dev/null | head -1)
 say "installer dir: ${INSTALL_DIR:-<none>}"
 
 if [ -n "$INSTALL_DIR" ] && [ -f "$INSTALL_DIR/install.sh" ]; then
+  if [ "$ABI" = "x86_64" ]; then
+    # The installer compiles native modules for aarch64 only. On an x86_64 emulator
+    # the same target must be x86_64, or clang builds the wrong architecture.
+    sed -i 's/^NDK_TARGET="aarch64-unknown-linux-android30"/NDK_TARGET="x86_64-unknown-linux-android30"/' "$INSTALL_DIR/install.sh"
+    record install-adaptation INFO "NDK_TARGET aarch64 -> x86_64 (emulator only, not a phone test)"
+  fi
   # Same invocation the installer README documents. DEEPSEEK_API_KEY is set so the
   # interactive key prompt is skipped; a dummy key is enough for install and boot tests.
   run_step installer-install bash -c "cd '$INSTALL_DIR' && DEEPSEEK_API_KEY=sk-ci-dummy bash install.sh"

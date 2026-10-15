@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Host side (GitHub arm64 runner). Everything here is logged to ci-logs/host.log.
-#  1. installs the Android SDK pieces (platform-tools, emulator, arm64 system image)
+# Host side (GitHub runner with KVM). Everything here is logged to ci-logs/host.log.
+#  1. installs the Android SDK pieces (platform-tools, emulator, system image for $EMULATOR_ABI)
 #  2. creates an AVD and boots it (KVM), logs to ci-logs/emulator.log
 #  3. installs the Termux APK (github-debug build, which allows `run-as`)
 #  4. waits for Termux to extract its bootstrap, then runs termux-test.sh as com.termux
@@ -13,7 +13,8 @@ mkdir -p "$OUT"
 exec > >(tee -a "$OUT/host.log") 2>&1
 
 API="${API_LEVEL:-34}"
-IMG="system-images;android-${API};google_apis;arm64-v8a"
+ABI="${EMULATOR_ABI:-x86_64}"
+IMG="system-images;android-${API};google_apis;${ABI}"
 AVD=dshtest
 PKG=com.termux
 PREFIX_T=/data/data/com.termux/files/usr
@@ -42,7 +43,7 @@ fail() {
 finish() {
   local rc="$1"
   {
-    echo "## Termux on Android (arm64) - dsh installer test"
+    echo "## Termux on Android (${ABI} emulator) - dsh installer test"
     echo "installer: ${INSTALLER_REPO}@${INSTALLER_REF}, emulator API ${API}"
     echo '```'
     cat "$OUT/summary.txt"
@@ -102,7 +103,7 @@ for i in $(seq 1 180); do
   sleep 5
 done
 [ "$boot" = "1" ] || fail "boot_completed never reached 1"
-record emulator-boot PASS "arm64 API ${API}"
+record emulator-boot PASS "${ABI} API ${API}"
 adb shell getprop ro.product.cpu.abi | tr -d '\r' | sed 's/^/[device] abi=/'
 adb shell getprop ro.build.version.release | tr -d '\r' | sed 's/^/[device] android=/'
 adb shell getprop ro.build.version.sdk | tr -d '\r' | sed 's/^/[device] sdk=/'
@@ -113,7 +114,7 @@ note "installing Termux APK"
 if ! adb install -r -g "$GITHUB_WORKSPACE/ci-apk/termux.apk"; then
   fail "Termux APK install"
 fi
-record termux-install PASS "github-debug arm64"
+record termux-install PASS "github-debug ${ABI}"
 adb shell am start -n "$PKG/com.termux.app.TermuxActivity" > /dev/null
 
 note "waiting for Termux bootstrap"
@@ -133,7 +134,7 @@ record termux-bootstrap PASS "run-as works"
 adb shell "run-as $PKG sh -c 'cat > $HOME_T/termux-test.sh'" < "$GITHUB_WORKSPACE/.github/termux-ci/termux-test.sh"
 adb shell "run-as $PKG sh -c 'cat > $HOME_T/checks.mjs'" < "$GITHUB_WORKSPACE/.github/termux-ci/checks.mjs"
 note "running termux-test.sh inside Termux (installer takes a while)"
-timeout 6000 adb shell "run-as $PKG $PREFIX_T/bin/bash $HOME_T/termux-test.sh '$INSTALLER_URL'"
+timeout 6000 adb shell "run-as $PKG $PREFIX_T/bin/bash $HOME_T/termux-test.sh '$INSTALLER_URL' '$ABI'"
 note "termux-test.sh exit code: $?"
 
 # ---------- 5. Collect ----------
