@@ -1,8 +1,9 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # "dsh web debug": runs dsh web behind a logging proxy and records the session.
 #
-#   bash termux-debug/dsh-web-debug.sh                 start a debug session
-#   bash termux-debug/dsh-web-debug.sh --install-alias make `dsh web debug` work
+#   dsh-debug                                          start a debug session (after --install)
+#   bash termux-debug/dsh-web-debug.sh                 same, without installing
+#   bash termux-debug/dsh-web-debug.sh --install   creates the 'dsh-debug' command
 #
 # Layout while it runs:
 #   browser -> http://127.0.0.1:3080 (proxy, logs everything) -> dsh web on 127.0.0.1:3180
@@ -25,25 +26,26 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 REPO_DIR="$(cd "$HERE/.." && pwd)"
 
-if [ "${1:-}" = "--install-alias" ]; then
-  RC="$HOME/.bashrc"
-  touch "$RC"
-  # Remove an older block first so the path is always current.
-  sed -i '/# >>> dsh web debug >>>/,/# <<< dsh web debug <<</d' "$RC"
-  cat >> "$RC" <<EOF
-# >>> dsh web debug >>>
-dsh() {
-  if [ "\$1" = "web" ] && [ "\$2" = "debug" ]; then
-    shift 2
-    bash "$HERE/dsh-web-debug.sh" "\$@"
-  else
-    command dsh "\$@"
-  fi
-}
-# <<< dsh web debug <<<
+if [ "${1:-}" = "--install" ]; then
+  # Creates a 'dsh-debug' command in Termux's bin folder. It is a plain executable,
+  # so it works in any shell and cannot clash with aliases or functions.
+  BIN_DIR="${PREFIX:-/data/data/com.termux/files/usr}/bin"
+  WRAPPER="$BIN_DIR/dsh-debug"
+  mkdir -p "$BIN_DIR" || { echo "could not create $BIN_DIR"; exit 1; }
+  cat > "$WRAPPER" <<EOF
+#!/data/data/com.termux/files/usr/bin/bash
+exec bash "$HERE/dsh-web-debug.sh" "\$@"
 EOF
-  echo "Added 'dsh web debug' to $RC."
-  echo "Open a new Termux session (or run: source ~/.bashrc), then use: dsh web debug"
+  chmod +x "$WRAPPER"
+  # Remove the bashrc block written by an earlier version of this script.
+  RC="$HOME/.bashrc"
+  if [ -f "$RC" ] && grep -q '# >>> dsh web debug >>>' "$RC"; then
+    cp "$RC" "$RC.bak-dsh-debug"
+    sed -i '/# >>> dsh web debug >>>/,/# <<< dsh web debug <<</d' "$RC"
+    echo "Removed the old 'dsh web debug' block from $RC (backup: $RC.bak-dsh-debug)."
+  fi
+  echo "Installed the command: dsh-debug"
+  echo "Start a debug session with:  dsh-debug"
   exit 0
 fi
 

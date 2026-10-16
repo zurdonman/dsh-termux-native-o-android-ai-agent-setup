@@ -1,21 +1,21 @@
-# Sesión de depuración: `dsh web debug`
+# Sesión de depuración: `dsh-debug`
 
 Arranca `dsh web` detrás de un proxy que registra cada petición y cada mensaje que hace la interfaz del navegador, y guarda el resultado en la carpeta **Descargas** del móvil.
 
-## Activar el comando (una vez)
+## Instalar (una vez)
 
 ```bash
 termux-setup-storage
 cd ~/dsh-termux-native-o-android-ai-agent-setup && git pull
-bash termux-debug/dsh-web-debug.sh --install-alias
+bash termux-debug/dsh-web-debug.sh --install
 ```
 
-Luego abre una sesión nueva de Termux (o ejecuta `source ~/.bashrc`). `dsh web` normal no cambia.
+Crea el comando **`dsh-debug`**. No modifica `~/.bashrc` ni el comando `dsh`. Si una versión anterior de este kit dejó un bloque en `~/.bashrc`, se elimina (con copia de seguridad en `~/.bashrc.bak-dsh-debug`).
 
 ## Uso
 
 ```bash
-dsh web debug
+dsh-debug
 ```
 
 1. Abre la URL que muestra (`http://127.0.0.1:3080/?token=...`) en el navegador del móvil.
