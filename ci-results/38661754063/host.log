@@ -1,0 +1,6 @@
+[host 00:44:52] SDK at /usr/local/lib/android/sdk
+[host 00:44:52] accepting licenses and installing packages (this can take several minutes)
+.github/termux-ci/run-on-emulator.sh: line 83: /home/runner/.android/avd/dshtest.avd/config.ini: No such file or directory
+[host 00:45:51] starting emulator
+[host 00:45:53] waiting for device
+[host 00:55:53] FAIL: device never appeared (see emulator.log)

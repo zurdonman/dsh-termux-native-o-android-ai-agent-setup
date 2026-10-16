@@ -1,0 +1,3 @@
+[host] sdk-install PASS
+[host] avd-create PASS
+[host] host-FAIL device never appeared (see emulator.log)

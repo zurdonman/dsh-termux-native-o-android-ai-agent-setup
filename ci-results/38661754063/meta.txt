@@ -1,0 +1,1 @@
+run=38661754063 sha=96dde2507a4cdd711ef7d5a7e8098fc6af9c28fd installer=lilyco-42/dsh-termux@main api=34 abi=x86_64
