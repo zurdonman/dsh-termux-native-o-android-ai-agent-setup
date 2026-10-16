@@ -13,6 +13,7 @@
 #   4. Android fixes that the lilyco installer does not cover:
 #        - termux-verify/fix-require-builtin.sh  (dsh web does not start otherwise)
 #        - termux-verify/fix-ripgrep.sh          (glob/grep tools)
+#        - termux-verify/fix-chatgpt-codex-dir.sh (ChatGPT plugin sign-in save)
 #   5. Self-check (termux-verify/checks.mjs).
 #
 # Re-running is safe: every step skips work that is already done.
@@ -55,6 +56,7 @@ bash "$REPO_DIR/termux-verify/fix-require-builtin.sh" || die "fix-require-builti
 bash "$REPO_DIR/termux-verify/fix-ripgrep.sh" || die "fix-ripgrep.sh failed."
 bash "$REPO_DIR/termux-verify/fix-flock.sh" || die "fix-flock.sh failed."
 bash "$REPO_DIR/termux-verify/fix-rename-import.sh" || die "fix-rename-import.sh failed."
+bash "$REPO_DIR/termux-verify/fix-chatgpt-codex-dir.sh" || die "fix-chatgpt-codex-dir.sh failed."
 
 step "5/5 Self-check"
 DSH_PKG="$(npm root -g)/@deepseek-ai/dsh/package.json"
