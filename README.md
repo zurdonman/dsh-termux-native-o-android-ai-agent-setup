@@ -3,6 +3,11 @@ DSH  en android, gracias a termux
 ¡Felicidades!
 # 📱 DeepSeek Harness (DSH) en Android / Termux
 
+**Instalar DeepSeek Harness (DSH) en Android con Termux, sin proot ni PC.** Guía y script de instalación para ejecutar `dsh web` en un móvil Android (arm64), con los parches necesarios para `flock`, `rename`, ripgrep y el login del plugin de ChatGPT, y un modo debug que genera un log para compartir.
+
+> *English summary:* install DeepSeek Harness (dsh) natively on Android with Termux (no proot, no PC). One-command installer, Android fixes (`flock is not supported on android-arm64`, `rename is not defined`, ripgrep), ChatGPT subscription plugin sign-in fix, and a debug mode that writes shareable logs.
+
+
 Guía definitiva para ejecutar **DeepSeek Harness** (el framework de agentes de IA de DeepSeek) de forma **nativa** en dispositivos Android a través de Termux, sin contenedores `proot` y con acceso completo al sistema de archivos local.
 
 > **⚠️ ADVERTENCIA CRÍTICA:** No instales Termux desde la Google Play Store (está desactualizado y falla). Descárgalo exclusivamente desde [F-Droid](https://f-droid.org/packages/com.termux/).
@@ -26,7 +31,7 @@ En Termux, ejecuta estos comandos uno a uno:
 
 ```bash
 pkg install -y git
-git clone -b arena/071a9cd5-dsh-termux-native-o-android-ai https://github.com/zurdonman/dsh-termux-native-o-android-ai-agent-setup.git
+git clone https://github.com/zurdonman/dsh-termux-native-o-android-ai-agent-setup.git
 cd dsh-termux-native-o-android-ai-agent-setup
 bash install-termux.sh
 ```
@@ -140,6 +145,37 @@ El agente escribirá el código, lo ejecutará en la terminal integrada y te mos
 | `Could not find @vscode/ripgrep-android-arm64` o fallan `glob` / `grep` del agente | `@vscode/ripgrep` no tiene binario para Android. Aplica la **corrección de ripgrep** de la sección siguiente. |
 | `gyp ERR!`, `make: not found`, `clang: not found` al instalar | Faltan herramientas de compilación para `node-pty`. Ejecuta `pkg install -y clang make python cmake binutils pkg-config` y reinstala. |
 | `dsh web` se cierra al arrancar | Comprueba la versión de Node con `node -v`. Los proyectos de la comunidad indican **22.19+** o **24+**. Si es más antigua, ejecuta `pkg install nodejs-lts`. |
+| `flock is not supported on android-arm64` al abrir una sesión | Ejecuta `bash termux-verify/fix-flock.sh` (ya incluido en `install-termux.sh`). |
+| `rename is not defined` al crear o guardar una sesión | Ejecuta `bash termux-verify/fix-rename-import.sh` (ya incluido en `install-termux.sh`). |
+| Login de ChatGPT: vuelve a pedir iniciar sesión, o aparece `oauth.write-failed` / «no se pudo guardar localmente» | Ejecuta `bash termux-verify/fix-chatgpt-codex-dir.sh` y vuelve a iniciar sesión. Crea `~/.codex`, que el plugin necesita. |
+| Error `403 AUTH` o «API key is invalid» con un proveedor compatible con OpenAI (p. ej. b.ai) | Revisa la base URL del proveedor: debe terminar en `/v1`. |
+
+---
+
+## 🐞 Modo debug: log para compartir
+
+Si algo falla, el modo debug registra la sesión (peticiones HTTP, WebSocket, acciones de la interfaz y errores del turno) en una carpeta que puedes compartir sin login:
+
+```bash
+cd ~/dsh-termux-native-o-android-ai-agent-setup
+bash termux-debug/dsh-web-debug.sh --install
+dsh-debug
+```
+
+- Los logs se guardan en `/storage/emulated/0/Download/dsh-log/session-<fecha>/`: `events.log`, `terminal.txt` y `report.txt`.
+- Si Download no es escribible, el log queda en `~/dsh-log/` y el script avisa.
+- Las claves, tokens y correos se redactan. Revisa el log antes de compartirlo.
+- Guía completa: [`termux-debug/README.md`](termux-debug/README.md).
+
+## 🔐 Login de ChatGPT (plugin ChatGPT Subscription)
+
+El plugin es [songoao25/dsh-chatgpt-sub](https://github.com/songoao25/dsh-chatgpt-sub). En Termux necesita `~/.codex`, que el plugin no crea. Sin ella, el login se completa en OpenAI pero no se guarda. Solución:
+
+```bash
+bash termux-verify/fix-chatgpt-codex-dir.sh
+```
+
+Después pulsa «Sign in with ChatGPT» otra vez. Este paso ya está incluido en `install-termux.sh`. Issue reportado al autor: [songoao25/dsh-chatgpt-sub#55](https://github.com/songoao25/dsh-chatgpt-sub/issues/55).
 
 ---
 
@@ -202,10 +238,6 @@ Este documento es de libre uso. DeepSeek Harness es desarrollado por DeepSeek AI
 
 ---
 
-### 💡 Consejos para tu repositorio de GitHub:
-1. Crea un repositorio nuevo llamado algo como `dsh-termux-native` o `android-ai-agent-setup`.
-2. Crea un archivo `README.md` y pega todo esto.
-3. (Opcional pero recomendado) Añade un archivo `.gitignore` con `node_modules/` y `package-lock.json` para que el repo sea ligero.
-4. Si puedes, graba un GIF o un video corto de 10 segundos mostrando el comando `./start-dsh.sh` y la interfaz cargando en el móvil. Eso le da un valor incalculable al repositorio.
+## 🏷️ Palabras clave
 
-¡Has hecho un trabajo de ingeniería excelente, Brian! Si necesitas ajustar alguna parte del texto o añadir un paso específico de tu proyecto de ciberseguridad, dímelo y lo refinamos. 🚀
+DeepSeek Harness, DSH, DeepSeek en Android, DeepSeek Termux, Termux Android AI agent, instalar dsh en Android, `dsh web` Termux, agente de IA en el móvil sin PC, Node.js en Android, `android-arm64`, `flock is not supported`, `rename is not defined`, `node-pty` Termux, ripgrep Termux, ChatGPT subscription plugin Termux, `oauth.write-failed`, debug de agentes en Android.
