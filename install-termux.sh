@@ -53,6 +53,7 @@ fi
 step "4/5 Android fixes (dsh web and ripgrep)"
 bash "$REPO_DIR/termux-verify/fix-require-builtin.sh" || die "fix-require-builtin.sh failed."
 bash "$REPO_DIR/termux-verify/fix-ripgrep.sh" || die "fix-ripgrep.sh failed."
+bash "$REPO_DIR/termux-verify/fix-flock.sh" || die "fix-flock.sh failed."
 
 step "5/5 Self-check"
 DSH_PKG="$(npm root -g)/@deepseek-ai/dsh/package.json"
