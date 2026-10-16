@@ -9,6 +9,7 @@
 import http from 'node:http';
 import net from 'node:net';
 import { appendFileSync } from 'node:fs';
+import zlib from 'node:zlib';
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((acc, v, i, a) => {
   if (v.startsWith('--')) acc.push([v.slice(2), a[i + 1]]);
@@ -19,6 +20,19 @@ const TARGET = Number(args.target || 3180);
 const LOG = args.log || 'events.log';
 const HOST = '127.0.0.1';
 const BODY_LOG_LIMIT = 4096;      // bytes of each body kept in the log
+const BODY_RAW_LIMIT = 262144;    // compressed bytes copied for decoding (log copy only)
+
+// Decode a compressed body for the log copy. Returns null if it cannot be decoded.
+function decodeBody(buf, encoding) {
+  try {
+    if (encoding === 'gzip' || encoding === 'x-gzip') return zlib.gunzipSync(buf);
+    if (encoding === 'deflate') return zlib.inflateSync(buf);
+    if (encoding === 'br') return zlib.brotliDecompressSync(buf);
+    return buf;
+  } catch {
+    return null;
+  }
+}
 const WS_LOG_LIMIT = 2048;        // characters of each WebSocket text frame kept
 
 function redact(text) {
@@ -63,19 +77,31 @@ const server = http.createServer((req, res) => {
     const type = String(up.headers['content-type'] || '');
     // Bodies only for JSON, plain text and event streams (not HTML, scripts or images).
     const logBody = !isStatic && /application\/json|text\/plain|event-stream/.test(type);
+    const encoding = String(up.headers['content-encoding'] || '').trim().toLowerCase();
     const resChunks = [];
     let resBytes = 0;
+    let rawCopied = 0;
     res.writeHead(up.statusCode || 502, up.headers);
     up.on('data', (chunk) => {
       res.write(chunk);
-      if (logBody && resBytes < BODY_LOG_LIMIT) resChunks.push(chunk);
+      if (logBody && rawCopied < BODY_RAW_LIMIT) {
+        resChunks.push(chunk);
+        rawCopied += chunk.length;
+      }
       resBytes += chunk.length;
     });
     up.on('end', () => {
       res.end();
-      const body = logBody && resChunks.length
-        ? ' body=' + Buffer.concat(resChunks).subarray(0, BODY_LOG_LIMIT).toString('utf8')
-        : '';
+      let body = '';
+      if (logBody && resChunks.length) {
+        let buf = Buffer.concat(resChunks);
+        if (encoding && encoding !== 'identity') {
+          const decoded = decodeBody(buf, encoding);
+          buf = decoded || buf;
+          if (!decoded) body = ' body=[' + encoding + ' body, could not decode]';
+        }
+        if (!body) body = ' body=' + buf.subarray(0, BODY_LOG_LIMIT).toString('utf8');
+      }
       log('HTTP', `${req.method} ${path} -> ${up.statusCode} ${Date.now() - started}ms ${resBytes}B ${type.split(';')[0]}${body}`);
     });
     up.on('error', (err) => { log('HTTP-ERR', `${req.method} ${path} upstream ${err.message}`); res.destroy(); });
