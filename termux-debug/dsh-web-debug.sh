@@ -91,6 +91,7 @@ write_report() {
     echo "=================================================="
     echo "Device: $(getprop ro.product.model 2>/dev/null) / Android $(getprop ro.build.version.release 2>/dev/null) (sdk $(getprop ro.build.version.sdk 2>/dev/null))"
     echo "Arch: $(uname -m 2>/dev/null)"
+    echo "Node platform: $(node -p "process.platform + '-' + process.arch" 2>/dev/null || echo missing)"
     echo "node: $(node -v 2>/dev/null || echo missing)   npm: $(npm -v 2>/dev/null || echo missing)   pnpm: $(pnpm -v 2>/dev/null || echo missing)"
     echo "dsh: $("$DSH_BIN" --version 2>/dev/null | head -1)"
     echo "rg: $(command -v rg >/dev/null 2>&1 && rg --version | head -1 || echo missing)"

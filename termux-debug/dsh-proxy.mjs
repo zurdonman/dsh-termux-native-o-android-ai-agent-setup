@@ -174,7 +174,14 @@ function watchSocket(direction, socket, label) {
       const text = f.payload.subarray(0, WS_LOG_LIMIT).toString('utf8');
       log('WS', `${label} ${direction} text ${f.length}B ${text}`);
     } else if (f.opcode === 2) {
-      log('WS', `${label} ${direction} binary ${f.length}B`);
+      // Binary frames are not JSON. Log the readable text inside them (error messages,
+      // model output). Gzip frames are decoded first. The raw bytes are never logged.
+      let bytes = f.payload.subarray(0, WS_LOG_LIMIT);
+      if (bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) {
+        bytes = decodeBody(f.payload, 'gzip') || bytes;
+      }
+      const runs = (bytes.toString('utf8').match(/[\p{L}\p{N}\p{P}\p{S}\p{Zs}]{6,}/gu) || []).join(' | ');
+      log('WS', `${label} ${direction} binary ${f.length}B text=${runs ? runs.slice(0, WS_LOG_LIMIT) : '(none)'}`);
     } else if (f.opcode === 8) {
       log('WS', `${label} ${direction} close`);
     }
@@ -197,7 +204,20 @@ server.on('upgrade', (req, clientSocket, head) => {
   const toClient = watchSocket('server->client', clientSocket, label);
   if (head && head.length) toServer.push(head);
   clientSocket.on('data', (chunk) => { upSocket.write(chunk); toServer.push(chunk); });
-  upSocket.on('data', (chunk) => { clientSocket.write(chunk); toClient.push(chunk); });
+  // The 101 response headers are forwarded as-is but must not reach the frame reader.
+  let upHead = Buffer.alloc(0);
+  let upHeadDone = false;
+  upSocket.on('data', (chunk) => {
+    clientSocket.write(chunk);
+    if (upHeadDone) { toClient.push(chunk); return; }
+    upHead = Buffer.concat([upHead, chunk]);
+    const end = upHead.indexOf('\r\n\r\n');
+    if (end < 0) return;
+    upHeadDone = true;
+    const rest = upHead.subarray(end + 4);
+    if (rest.length) toClient.push(rest);
+    upHead = null;
+  });
   const end = (why) => { log('WS-CLOSE', `${label} ${why}`); clientSocket.destroy(); upSocket.destroy(); };
   clientSocket.on('error', () => end('client error'));
   upSocket.on('error', () => end('backend error'));
