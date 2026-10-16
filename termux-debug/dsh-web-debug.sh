@@ -67,7 +67,20 @@ command -v node >/dev/null 2>&1 || die "node not installed (run install-termux.s
 if [ ! -d "$(dirname "$OUT_ROOT")" ]; then
   die "Download folder not reachable. Run 'termux-setup-storage' once, then start again."
 fi
-mkdir -p "$SESSION" || die "could not create $SESSION"
+mkdir -p "$SESSION" 2>/dev/null || true
+# The Download folder can be created but not writable (Android storage not mounted or
+# permission revoked). Test a real write; if it fails, keep the logs inside Termux
+# instead of losing them.
+if ! { : > "$SESSION/.write-test"; } 2>/dev/null; then
+  OUT_ROOT="$HOME/dsh-log"
+  SESSION="$OUT_ROOT/session-$STAMP"
+  EVENTS="$SESSION/events.log"
+  mkdir -p "$SESSION" || die "could not create $SESSION"
+  echo "WARNING: the Download folder is not writable. Logs go to $SESSION instead."
+  echo "         Copy them later with: cp -r \"$SESSION\" /storage/emulated/0/Download/"
+else
+  rm -f "$SESSION/.write-test"
+fi
 : > "$RAW"
 
 if node -e "require('net').connect($PUBLIC_PORT,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))" 2>/dev/null; then
