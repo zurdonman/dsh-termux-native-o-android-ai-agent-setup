@@ -1,33 +1,46 @@
-# Sesión de depuración de dsh en Termux
+# Sesión de depuración: `dsh web debug`
 
-Graba todo lo que imprime `dsh web` y deja un informe en la carpeta **Descargas** del móvil, para que puedas compartir los `.txt` directamente en el chat.
+Arranca `dsh web` detrás de un proxy que registra cada petición y cada mensaje que hace la interfaz del navegador, y guarda el resultado en la carpeta **Descargas** del móvil.
 
-## Uso
-
-Una vez (permite a Termux leer y escribir en Descargas):
+## Activar el comando (una vez)
 
 ```bash
 termux-setup-storage
+cd ~/dsh-termux-native-o-android-ai-agent-setup && git pull
+bash termux-debug/dsh-web-debug.sh --install-alias
 ```
 
-Después, desde la carpeta del repo:
+Luego abre una sesión nueva de Termux (o ejecuta `source ~/.bashrc`). `dsh web` normal no cambia.
+
+## Uso
 
 ```bash
-bash termux-debug/dsh-debug.sh
+dsh web debug
 ```
 
-1. Reproduce el problema (por ejemplo, habla con un modelo y espera el error).
-2. Pulsa **Ctrl+C** en Termux. Se escriben los ficheros.
-3. Abre la carpeta **Descargas > dsh-log > session-<fecha>** y comparte `terminal.txt` y `report.txt` en el chat.
+1. Abre la URL que muestra (`http://127.0.0.1:3080/?token=...`) en el navegador del móvil.
+2. Reproduce el problema: pulsa los botones, escribe, habla con el modelo.
+3. Pulsa **Ctrl+C** en Termux.
+4. Abre **Descargas > dsh-log > session-…** y comparte los `.txt` en el chat.
 
-## Qué contiene
+## Qué se registra
 
-- `terminal.txt`: todo lo que imprimió `dsh web`, con claves, tokens, JWT y correos sustituidos por `REDACTED`.
-- `report.txt`: versiones (Android, Node, npm, pnpm, dsh, ripgrep), nombres y tamaños de los ficheros de `~/.dsh` y `~/.codex`, los últimos logs de arranque de dsh y el estado del plugin de ChatGPT, también redactados.
+| Fichero | Contenido |
+|---|---|
+| `events.log` | Una línea por cada petición HTTP de la interfaz (método, ruta, estado, tiempo, cuerpo si es JSON o texto) y por cada mensaje del WebSocket (`/api/remote.mux`), en ambos sentidos. |
+| `terminal.txt` | Todo lo que imprime `dsh web`. |
+| `report.txt` | Versiones (Android, Node, dsh, ripgrep), nombres y tamaños de los ficheros de `~/.dsh` y `~/.codex`, logs de arranque y estado del plugin de ChatGPT. |
 
-## Qué NO contiene
+Claves, tokens, JWT y correos se sustituyen por `REDACTED` antes de guardar nada.
 
-- No copia `~/.codex/auth.json` ni ningún fichero de credenciales.
-- No sube nada a internet. Los ficheros se quedan en tu móvil.
+## Qué NO se registra
 
-Revisa los `.txt` antes de compartirlos. La redacción cubre los patrones habituales, pero no puede garantizar que no quede ningún dato personal.
+- Interacciones que no hablan con el servidor (scroll, abrir y cerrar menús, escribir sin enviar). Solo queda registro cuando la interfaz llama al servidor.
+- Errores de JavaScript del navegador. Para verlos haría falta un cambio en la propia interfaz.
+- El contenido de `~/.codex/auth.json` ni de otros ficheros de credenciales.
+- Nada se sube a internet. Los ficheros se quedan en el móvil.
+
+## Notas
+
+- Con la sesión activa, dsh escucha en el puerto interno **3180**. El proxy usa el **3080**, así que solo abre la URL del puerto 3080. El modelo puede citar el puerto 3180 en sus mensajes; no es un error.
+- Revisa los `.txt` antes de compartirlos. La redacción cubre los patrones habituales, pero no lo garantiza al 100 %.
