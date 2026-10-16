@@ -144,7 +144,9 @@ trap finish EXIT INT TERM
 echo "Session: $SESSION"
 
 # 1. dsh web on the internal port (its output goes to the raw file, tailed on screen)
-"$DSH_BIN" web --port "$BACKEND_PORT" --no-open >> "$RAW" 2>&1 &
+# rename-trap.cjs logs the file and line of any dsh code that calls rename() without
+# importing it (the "rename is not defined" turn error), then runs the real rename.
+NODE_OPTIONS="${NODE_OPTIONS:-} --require $HERE/rename-trap.cjs" "$DSH_BIN" web --port "$BACKEND_PORT" --no-open >> "$RAW" 2>&1 &
 PIDS="$PIDS $!"
 tail -n +1 -F "$RAW" 2>/dev/null &
 PIDS="$PIDS $!"
