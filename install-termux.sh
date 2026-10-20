@@ -1,7 +1,10 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # One-command installer for DeepSeek Harness (dsh) on Termux (Android, arm64).
 #
-#   git clone -b <branch> https://github.com/zurdonman/dsh-termux-native-o-android-ai-agent-setup.git
+#   bash <(curl -fsSL https://raw.githubusercontent.com/zurdonman/dsh-termux-native-o-android-ai-agent-setup/main/bootstrap-termux.sh)
+#
+# That one command clones or updates the repo and runs this script. Or, by hand:
+#   git clone https://github.com/zurdonman/dsh-termux-native-o-android-ai-agent-setup.git
 #   cd dsh-termux-native-o-android-ai-agent-setup
 #   bash install-termux.sh
 #

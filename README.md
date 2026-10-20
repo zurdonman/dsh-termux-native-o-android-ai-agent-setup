@@ -25,9 +25,20 @@ Guía definitiva para ejecutar **DeepSeek Harness** (el framework de agentes de 
 
 ## ⚡ Instalación rápida en Termux (un comando)
 
-Requisitos: Termux instalado desde **F-Droid**, Android 11 o superior, unos 2 GB libres y una API key de DeepSeek.
+Requisitos: Termux instalado desde **F-Droid**, Android 11 o superior y unos 2 GB libres. No necesitas una clave de DeepSeek: puedes usar cualquier proveedor compatible (ver [Otros proveedores](#-otros-proveedores-sin-clave-de-deepseek)).
 
-En Termux, ejecuta estos comandos uno a uno:
+En Termux, pega este único comando:
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/zurdonman/dsh-termux-native-o-android-ai-agent-setup/main/bootstrap-termux.sh)
+```
+
+Descarga el repo en `~/dsh-termux-native-o-android-ai-agent-setup` (o lo actualiza si ya existe) y lanza la instalación. Puedes volver a ejecutarlo sin riesgo. Usa `<(...)` y no `curl ... | bash`, porque la instalación te pide la clave de DeepSeek por teclado.
+
+Para arrancar después: `dsh web` y abre la URL que muestra en Chrome.
+
+<details>
+<summary>Alternativa manual (si prefieres clonar tú el repo)</summary>
 
 ```bash
 pkg install -y git
@@ -36,12 +47,14 @@ cd dsh-termux-native-o-android-ai-agent-setup
 bash install-termux.sh
 ```
 
+</details>
+
 El script instala todo: paquetes, `@deepseek-ai/dsh` (con el instalador de [lilyco-42/dsh-termux](https://github.com/lilyco-42/dsh-termux), fijado a un commit), `pnpm` para los plugins, y las correcciones de Android de `termux-verify/`:
 
 - `fix-require-builtin.sh`: sin esto, `dsh web` no arranca (`No usable native binding found for node-addon-require-builtin-android-arm64`).
 - `fix-ripgrep.sh`: sin esto, las herramientas `glob` y `grep` fallan.
 
-Tarda bastante, porque compila módulos nativos. Pide tu API key en mitad del proceso; la escribes sin que se vea. No lo ejecutes con un pipe (`curl ... | bash`), porque el instalador necesita el teclado. Al final, arranca la interfaz con:
+Tarda bastante, porque compila módulos nativos. Pide una API key de DeepSeek en mitad del proceso; la escribes sin que se vea. **Si no tienes una, pulsa Enter sin escribir nada:** la instalación continúa y configuras tu proveedor después desde la interfaz de DSH. No lo ejecutes con un pipe (`curl ... | bash`), porque el instalador necesita el teclado. Al final, arranca la interfaz con:
 
 ```bash
 dsh web
@@ -124,6 +137,13 @@ DSH es agnóstico al modelo. Para usar tu propia API (Ollama local, OpenRouter, 
 
 ---
 
+### 🔀 Otros proveedores (sin clave de DeepSeek)
+
+DSH no obliga a usar DeepSeek. Desde la interfaz web, en la configuración de proveedores, puedes añadir cualquier proveedor compatible con OpenAI indicando **base URL**, **protocolo**, **clave** y al menos un **modelo**.
+
+- **b.ai:** la base URL debe terminar en `/v1`. Con una URL sin `/v1` aparece `403 AUTH`. Con la URL corregida, el modelo `deepseek-v4.1-flash` respondió en un Redmi con Android 15.
+- **ChatGPT (suscripción):** instala el plugin ChatGPT Subscription y sigue la sección [Login de ChatGPT](#-login-de-chatgpt-plugin-chatgpt-subscription).
+
 ## 💡 Uso Práctico (Ejemplo)
 
 Una vez configurado, puedes darle órdenes como esta en el chat del agente:
@@ -156,11 +176,20 @@ El agente escribirá el código, lo ejecutará en la terminal integrada y te mos
 
 Si algo falla, el modo debug registra la sesión (peticiones HTTP, WebSocket, acciones de la interfaz y errores del turno) en una carpeta que puedes compartir sin login:
 
+**Cómo arrancarlo:**
+
 ```bash
 cd ~/dsh-termux-native-o-android-ai-agent-setup
-bash termux-debug/dsh-web-debug.sh --install
+bash termux-debug/dsh-web-debug.sh --install   # solo la primera vez
 dsh-debug
 ```
+
+1. Cierra antes cualquier `dsh web` que esté abierto: el modo debug usa el puerto 3080.
+2. Termux muestra una línea `http://127.0.0.1:3080/?token=...`. Ábrela en Chrome del móvil.
+3. Reproduce el problema (chat, login, click, etc.).
+4. Pulsa **Ctrl+C** en Termux. El informe se escribe al salir.
+
+Si `dsh-debug` no se encuentra, ejecuta directamente: `bash termux-debug/dsh-web-debug.sh`.
 
 - Los logs se guardan en `/storage/emulated/0/Download/dsh-log/session-<fecha>/`: `events.log`, `terminal.txt` y `report.txt`.
 - Si Download no es escribible, el log queda en `~/dsh-log/` y el script avisa.

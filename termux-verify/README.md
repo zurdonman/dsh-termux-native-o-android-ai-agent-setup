@@ -14,7 +14,7 @@ En Termux:
 
 ```bash
 pkg install -y git
-git clone -b arena/071a9cd5-dsh-termux-native-o-android-ai https://github.com/zurdonman/dsh-termux-native-o-android-ai-agent-setup.git
+git clone https://github.com/zurdonman/dsh-termux-native-o-android-ai-agent-setup.git
 cd dsh-termux-native-o-android-ai-agent-setup
 bash termux-verify/verify.sh
 ```
